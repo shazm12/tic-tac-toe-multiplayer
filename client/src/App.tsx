@@ -10,7 +10,7 @@ import { NakamaProvider } from "../contexts/nakamaContext";
 export type RootStackParamList = {
   Home: undefined;
   OppSearch: { playerName: string , gameMode: string, action: string};
-  Game: {playerName: string, oppName: string}
+  Game: undefined
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
