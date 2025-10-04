@@ -10,13 +10,26 @@ import (
 
 type TicTacToeMatch struct{}
 
+const (
+	GameModeStandard = "standard"
+	GameModeBlitz    = "blitz"
+)
+
+const (
+	TimePerMoveStandard = 30
+	TimePerMoveBlitz    = 10
+)
+
 type MatchState struct {
-	Board       [][]string        `json:"board"`
-	Players     map[string]Player `json:"players"`
-	CurrentTurn string            `json:"currentTurn"`
-	Winner      string            `json:"winner"`
-	GameStatus  string            `json:"gameStatus"` // "wating", "playing", "finished"
-	MoveCount   int               `json:"moveCount"`
+	Board        [][]string        `json:"board"`
+	Players      map[string]Player `json:"players"`
+	CurrentTurn  string            `json:"currentTurn"`
+	Winner       string            `json:"winner"`
+	GameStatus   string            `json:"gameStatus"` // "wating", "playing", "finished"
+	MoveCount    int               `json:"moveCount"`
+	GameMode     string            `json:"gameMode"`
+	TimePerMove  int               `json:"timePerMove"`
+	MoveDeadline int64             `json:"moveDeadline"`
 }
 
 type Player struct {
@@ -26,8 +39,9 @@ type Player struct {
 }
 
 type MatchLabel struct {
-	Status  string `json:"status"`
-	Players int    `json:"players"`
+	Status   string `json:"status"`
+	Players  int    `json:"players"`
+	GameMode string `json:"gameMode"`
 }
 
 // Cutom OpCodes for our game server
@@ -41,24 +55,38 @@ const (
 )
 
 func (m *TicTacToeMatch) MatchInit(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, params map[string]interface{}) (interface{}, int, string) {
+	gameMode := GameModeStandard
+	timePerMove := TimePerMoveStandard
+
+	if mode, ok := params["game_mode"].(string); ok {
+		gameMode = mode
+		if gameMode == GameModeBlitz {
+			timePerMove = TimePerMoveBlitz
+		}
+	}
+
 	state := &MatchState{
 		Board: [][]string{
 			{"", "", ""},
 			{"", "", ""},
 			{"", "", ""},
 		},
-		Players:     make(map[string]Player),
-		CurrentTurn: "",
-		Winner:      "",
-		GameStatus:  "waiting",
-		MoveCount:   0,
+		Players:      make(map[string]Player),
+		CurrentTurn:  "",
+		Winner:       "",
+		GameStatus:   "waiting",
+		MoveCount:    0,
+		GameMode:     gameMode,
+		TimePerMove:  timePerMove,
+		MoveDeadline: 0,
 	}
 
 	tickRate := 1 // 1 tick per second
 
 	label := &MatchLabel{
-		Status:  "waiting",
-		Players: 0,
+		Status:   "waiting",
+		Players:  0,
+		GameMode: gameMode,
 	}
 	labelJson, _ := json.Marshal(label)
 
