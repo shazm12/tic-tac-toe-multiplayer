@@ -16,10 +16,10 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 		return err
 	}
 
-	if err := initializer.RegisterRpc("find_or_create_tictactoe_matches", RpcFindAndJoinMatch); err != nil {
+	if err := initializer.RegisterRpc("match_action", RpcMatchAction); err != nil {
 		return err
 	}
 
-	logger.Info("Module initialized successfully")
+	logger.Info("TicTacToe Module initialized successfully")
 	return nil
 }
