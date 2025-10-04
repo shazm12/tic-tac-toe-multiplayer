@@ -1,19 +1,35 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
+import { useNakama } from 'contexts/nakamaContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export default function Home({ navigation }: Props) {
   const [playerName, setPlayerName] = useState<string>("");
+  const { isConnected, isAuthenticated, session, initialize } = useNakama();
+
+
+  const initNakama = async() => {
+    if(playerName === undefined || playerName === "") {
+      return;
+    }
+    try {
+      await initialize(playerName);
+    }
+    catch(error) {
+      console.error("Failed to connect");
+    }
+  }
   
   const handlePlayerNameChange = (text: string) => {
     setPlayerName(text);
   };
 
-  const handleSubmit = () => {
-    navigation.navigate("OppSearch", { playerName });
+  const handleSubmit = async() => {
+    await initNakama();
+    navigation.navigate("OppSearch", { playerName, gameMode: 'standard', action: 'create_new' });
   };
 
   return (

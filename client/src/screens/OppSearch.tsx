@@ -1,13 +1,45 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
+import { useNakama } from 'contexts/nakamaContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, "OppSearch">;
 
 export default function OppSearch({ navigation, route }: Props) {
   const params = route.params;
-  const { playerName } = params;
+  const { playerName, gameMode, action } = params;
+  const [matchId, setMatchId ] = useState<string>("");
+  const { isConnected , findMatch } = useNakama();
+  
+  useEffect(() => {
+    initGame();
+  },[]);
+
+  useEffect(() => {
+    if(matchId !== "") {
+      Alert.alert(`Match found: ${matchId}`);
+    }
+  },[matchId]);
+
+  const initGame = async () => {
+    try {
+      if (!isConnected) {
+        return;
+      }
+      const gameType = gameMode === 'standard' ? 'standard' : 'blitz';
+      const matchAction = action === 'create' ? 'create_new' : 'join_random';
+      
+      const result = await findMatch(gameType, matchAction);      
+      console.log('Match result:', result);
+    } catch (error) {
+      console.error('Failed to initialize game:', error);
+      Alert.alert('Error', 'Failed to start game', [
+        { text: 'OK', onPress: () => navigation.goBack() }
+      ]);
+    }
+  };
 
   const handleCancel = () => {
     navigation.navigate("Home");

@@ -5,10 +5,11 @@ import Home from './screens/Home';
 import OppSearch from './screens/OppSearch';
 import Game from './screens/Game';
 import "../global.css";
+import { NakamaProvider } from "../contexts/nakamaContext";
 
 export type RootStackParamList = {
   Home: undefined;
-  OppSearch: { playerName: string };
+  OppSearch: { playerName: string , gameMode: string, action: string};
   Game: {playerName: string, oppName: string}
 };
 
@@ -16,13 +17,15 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="Home" component={Home} />
-        <Stack.Screen name="OppSearch" component={OppSearch} />
-        <Stack.Screen name="Game" component={Game} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <NakamaProvider>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="Home" component={Home} />
+          <Stack.Screen name="OppSearch" component={OppSearch} />
+          <Stack.Screen name="Game" component={Game} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </NakamaProvider>
   );
 }
 
