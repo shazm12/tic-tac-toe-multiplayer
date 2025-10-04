@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
 import { useNakama } from 'contexts/nakamaContext';
+import { MatchActionResponse } from 'interfaces/interfaces';
 
 type Props = NativeStackScreenProps<RootStackParamList, "OppSearch">;
 
@@ -25,14 +26,24 @@ export default function OppSearch({ navigation, route }: Props) {
 
   const initGame = async () => {
     try {
+     
       if (!isConnected) {
+        Alert.alert('Error', 'Not connected to server');
+        navigation.goBack();
         return;
       }
+  
       const gameType = gameMode === 'standard' ? 'standard' : 'blitz';
       const matchAction = action === 'create' ? 'create_new' : 'join_random';
+    
+      const result: MatchActionResponse = await findMatch(gameType, matchAction);
       
-      const result = await findMatch(gameType, matchAction);      
-      console.log('Match result:', result);
+      if (result.match_id) {
+        navigation.navigate("Game");
+      } else {
+        throw new Error('No match ID returned');
+      }
+      
     } catch (error) {
       console.error('Failed to initialize game:', error);
       Alert.alert('Error', 'Failed to start game', [
@@ -40,17 +51,10 @@ export default function OppSearch({ navigation, route }: Props) {
       ]);
     }
   };
-
+  
   const handleCancel = () => {
     navigation.navigate("Home");
   };
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      navigation.navigate("Game", { playerName: playerName, oppName: "Leo" });
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, []);
   
   return (
     <View className="bg-cyan-950 flex-1 items-center justify-center px-5">

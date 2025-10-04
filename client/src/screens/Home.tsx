@@ -27,9 +27,9 @@ export default function Home({ navigation }: Props) {
     setPlayerName(text);
   };
 
-  const handleSubmit = async() => {
+  const handleSubmit = async(action: string) => {
     await initNakama();
-    navigation.navigate("OppSearch", { playerName, gameMode: 'standard', action: 'create_new' });
+    navigation.navigate("OppSearch", { playerName, gameMode: "standard", action: action });
   };
 
   return (
@@ -48,10 +48,18 @@ export default function Home({ navigation }: Props) {
       
       <TouchableOpacity 
         className="bg-emerald-500 w-[80%] py-4 rounded-lg items-center active:bg-emerald-600"
-        onPress={handleSubmit}
+        onPress={() => handleSubmit("create_new")}
       >
         <Text className="text-white text-lg font-semibold">
-          Let's Go
+          Create New Match
+        </Text>
+      </TouchableOpacity>
+      <TouchableOpacity 
+        className="bg-emerald-500 w-[80%] py-4 mt-4 rounded-lg items-center active:bg-emerald-600"
+        onPress={() => handleSubmit("join_random")}
+      >
+        <Text className="text-white text-lg font-semibold">
+         Join Random Match
         </Text>
       </TouchableOpacity>
     </View>
