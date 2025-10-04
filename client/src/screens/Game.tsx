@@ -8,12 +8,11 @@ import { GameState } from '../../interfaces/interfaces';
 type Props = NativeStackScreenProps<RootStackParamList, "Game">;
 type CellValue = 'X' | 'O' | '';
 
-export default function Game({ navigation, route }: Props) {
-  const { playerName, oppName } = route.params;
-  
+export default function Game({ navigation }: Props) {
   const {
     matchId,
     gameState,
+    session,
     sendMove,
     leaveMatch,
     setMatchDataHandler,
@@ -32,13 +31,13 @@ export default function Game({ navigation, route }: Props) {
   useEffect(() => {
     setMatchDataHandler((opCode, data) => {
       switch (opCode) {
-        case 2: // Game state update
+        case 2:
           updateLocalGameState(data as GameState);
           break;
-        case 3: // Game over
+        case 3:
           handleGameOver(data);
           break;
-        case 4: // Error
+        case 4:
           Alert.alert('Error', data.error);
           break;
       }
@@ -46,11 +45,10 @@ export default function Game({ navigation, route }: Props) {
 
     return () => {
       if (matchId) {
-        leaveMatch().catch(console.error);
+        leaveMatch().catch(() => {});
       }
     };
   }, []);
-
 
   useEffect(() => {
     if (gameState) {
@@ -58,39 +56,46 @@ export default function Game({ navigation, route }: Props) {
     }
   }, [gameState]);
 
-
   const updateLocalGameState = (newState: GameState) => {
-
     const newBoard: CellValue[][] = newState.board.map(row => 
       row.map(cell => cell as CellValue)
     );
     setBoard(newBoard);
 
+    setGameStatus(newState.gameStatus as 'waiting' | 'active' | 'finished');
 
-    setGameStatus(newState.gameStatus);
+    if (newState.gameStatus) {
+      Alert.alert("Game over");
+    }
 
-    
-    if (newState.players && !mySymbol) {
-      const playerIds = Object.keys(newState.players);
-      for (const userId of playerIds) {
-        setMySymbol(newState.players[userId].symbol as 'X' | 'O');
-        break;
+    if (newState.players && !mySymbol && session) {
+      const myUserId = session.user_id;
+
+      if(!myUserId) {
+        return;
+      }
+      
+      if (newState.players[myUserId]) {
+        const myPlayerSymbol = newState.players[myUserId].symbol as 'X' | 'O';
+        setMySymbol(myPlayerSymbol);
       }
     }
 
     if (newState.currentTurn && newState.players) {
       const currentTurnPlayer = newState.players[newState.currentTurn];
       if (currentTurnPlayer) {
-        setCurrentPlayer(currentTurnPlayer.symbol as 'X' | 'O');
+        const turnSymbol = currentTurnPlayer.symbol as 'X' | 'O';
+        setCurrentPlayer(turnSymbol);
         
-        const isMyTurnNow = mySymbol === currentTurnPlayer.symbol;
-        setIsMyTurn(isMyTurnNow);
+        if (mySymbol) {
+          const isMyTurnNow = mySymbol === turnSymbol;
+          setIsMyTurn(isMyTurnNow);
+        }
       }
     }
   };
 
   const handleCellPress = async (row: number, col: number) => {
-
     if (gameStatus !== 'active') return;
     if (!isMyTurn) return;
     if (board[row][col] !== '') return;
@@ -98,7 +103,6 @@ export default function Game({ navigation, route }: Props) {
     try {
       await sendMove(row, col);
       
-
       const newBoard = board.map((r, rowIndex) =>
         rowIndex === row
           ? r.map((cell, colIndex) => (colIndex === col ? mySymbol || 'X' : cell))
@@ -108,12 +112,12 @@ export default function Game({ navigation, route }: Props) {
       setIsMyTurn(false);
       
     } catch (error) {
-      console.error('Failed to send move:', error);
       Alert.alert('Error', 'Failed to make move');
     }
   };
 
   const handleGameOver = (data: any) => {
+    console.log(data);
     const winner = data.winner;
     const reason = data.reason;
 
@@ -138,14 +142,13 @@ export default function Game({ navigation, route }: Props) {
       }
       navigation.goBack();
     } catch (error) {
-      console.error('Failed to leave match:', error);
       navigation.goBack();
     }
   };
 
   const getPlayerInfo = () => {
     if (!gameState?.players) {
-      return { player1: playerName, player2: oppName };
+      return { player1: 'Player 1', player2: 'Player 2' };
     }
 
     const players = Object.values(gameState.players);
@@ -153,8 +156,8 @@ export default function Game({ navigation, route }: Props) {
     const player2 = players.find(p => p.symbol === 'O');
 
     return {
-      player1: player1?.username || playerName,
-      player2: player2?.username || oppName,
+      player1: player1?.username || 'Waiting...',
+      player2: player2?.username || 'Waiting...',
     };
   };
 
@@ -163,7 +166,6 @@ export default function Game({ navigation, route }: Props) {
   return (
     <SafeAreaView className="bg-cyan-950 flex-1">
       <View className="flex-1 px-5 justify-between py-4">
-        {/* Player Names */}
         <View className="w-full">
           <Text className="text-white text-xl font-bold mb-2">
             {playerInfo.player1} {mySymbol === 'X' ? '(You)' : ''} - X
@@ -175,7 +177,6 @@ export default function Game({ navigation, route }: Props) {
           </Text>
         </View>
 
-        {/* Game Status */}
         <View className="items-center">
           {gameStatus === 'waiting' && (
             <Text className="text-yellow-400 text-lg font-bold">
@@ -194,7 +195,6 @@ export default function Game({ navigation, route }: Props) {
           )}
         </View>
 
-        {/* Game Board */}
         <View className="flex-1 items-center justify-center">
           <View className="w-[85%] max-w-[400px] aspect-square bg-cyan-900 p-1">
             {board.map((row, rowIndex) => (
@@ -224,7 +224,6 @@ export default function Game({ navigation, route }: Props) {
           </View>
         </View>
 
-        {/* Match Info */}
         {matchId && (
           <View className="items-center mb-4">
             <Text className="text-gray-400 text-sm">
@@ -238,7 +237,6 @@ export default function Game({ navigation, route }: Props) {
           </View>
         )}
 
-        {/* Cancel Button */}
         <TouchableOpacity 
           className="bg-red-500 w-full py-3 rounded-lg items-center active:bg-red-600"
           onPress={handleCancel}
