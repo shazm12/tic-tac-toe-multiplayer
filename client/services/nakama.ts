@@ -1,5 +1,5 @@
 import { Client, Session, Socket } from "@heroiclabs/nakama-js";
-import { MatchActionPayload, MatchActionResponse, MoveData, GameState, Player, MatchData } from "../interfaces/interfaces";
+import { MatchActionPayload, MatchActionResponse, MoveData, MatchData } from "../interfaces/interfaces";
 import { TextDecoder } from 'text-encoding';
 // Nakama configuration
 const NAKAMA_SERVER_KEY = "defaultkey";
@@ -12,7 +12,7 @@ class NakamaService {
     private session: Session | null = null;
     private socket: Socket | null = null;
 
-    // Initialize client
+
     initialize(): void {
         this.client = new Client(
             NAKAMA_SERVER_KEY,
@@ -23,20 +23,14 @@ class NakamaService {
         console.log("Nakama client initialized");
     }
 
-    // Authenticate (simple device auth for testing)
     async authenticate(username: string): Promise<Session> {
         if (!this.client) {
             throw new Error("Client not initialized. Call initialize() first.");
         }
 
         try {
-            // Generate a simple device ID for testing
             const deviceId = "test-device-" + Math.random().toString(36).substring(7);
             this.session = await this.client.authenticateDevice(deviceId, true, username);
-
-            console.log("Authenticated! User ID:", this.session.user_id);
-            console.log("Username:", this.session.username);
-
             return this.session;
         } catch (error) {
             console.error("Authentication failed:", error);
@@ -44,7 +38,7 @@ class NakamaService {
         }
     }
 
-    // Connect WebSocket
+
     async connectSocket(): Promise<Socket> {
         if (!this.client) {
             throw new Error("Client not initialized");
@@ -148,7 +142,6 @@ class NakamaService {
         };
     }
 
-    // Send move to match
     async sendMove(matchId: string, row: number, col: number): Promise<void> {
         if (!this.socket) {
             throw new Error("Socket not connected");
@@ -162,7 +155,7 @@ class NakamaService {
 
             await this.socket.sendMatchState(
                 matchId,
-                1, // OpCode for move (from your server)
+                1, // OpCode for move
                 JSON.stringify(moveData)
             );
         } catch (error) {
@@ -186,7 +179,7 @@ class NakamaService {
         }
     }
 
-    // Disconnect
+
     disconnect(): void {
         if (this.socket) {
             this.socket.disconnect(true);
@@ -194,7 +187,6 @@ class NakamaService {
         }
     }
 
-    // Getters
     getClient(): Client | null {
         return this.client;
     }

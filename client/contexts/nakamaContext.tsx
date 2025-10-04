@@ -44,10 +44,8 @@ export const NakamaProvider: React.FC<NakamaProviderProps> = ({ children }) => {
 
       await nakamaService.connectSocket();
       setIsConnected(true);
-
       setupDefaultMatchDataHandler();
 
-      console.log('Nakama initialized successfully');
     } catch (error) {
       console.error('Failed to initialize Nakama:', error);
       throw error;
@@ -65,7 +63,6 @@ export const NakamaProvider: React.FC<NakamaProviderProps> = ({ children }) => {
 
   const setupDefaultMatchDataHandler = (): void => {
     nakamaService.setMatchDataHandler((opCode: number, data: any) => {
-      console.log('Match data received:', opCode, data);
 
       switch (opCode) {
         case 2: // Game state update
@@ -143,7 +140,7 @@ export const NakamaProvider: React.FC<NakamaProviderProps> = ({ children }) => {
       if (opCode === 2) {
         setGameState(data as GameState);
       }
-      // Call custom handler
+      // custom handler
       handler(opCode, data);
     });
   };
