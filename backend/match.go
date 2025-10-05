@@ -4,11 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"time"
 
 	"github.com/heroiclabs/nakama-common/runtime"
 )
 
-type TicTacToeMatch struct{}
+type TicTacToeMatch struct {
+	turnStartTime int64
+}
 
 const (
 	GameModeStandard = "standard"
@@ -17,20 +20,21 @@ const (
 
 const (
 	TimePerMoveStandard = 30
-	TimePerMoveBlitz    = 10
+	TimePerMoveBlitz    = 15
 )
 
 type MatchState struct {
-	Board        [][]string        `json:"board"`
-	Players      map[string]Player `json:"players"`
-	PlayerOrder  []string          `json:"playerOrder"`
-	CurrentTurn  string            `json:"currentTurn"`
-	Winner       string            `json:"winner"`
-	GameStatus   string            `json:"gameStatus"`
-	MoveCount    int               `json:"moveCount"`
-	GameMode     string            `json:"gameMode"`
-	TimePerMove  int               `json:"timePerMove"`
-	MoveDeadline int64             `json:"moveDeadline"`
+	Board         [][]string        `json:"board"`
+	Players       map[string]Player `json:"players"`
+	PlayerOrder   []string          `json:"playerOrder"`
+	CurrentTurn   string            `json:"currentTurn"`
+	Winner        string            `json:"winner"`
+	GameStatus    string            `json:"gameStatus"`
+	MoveCount     int               `json:"moveCount"`
+	GameMode      string            `json:"gameMode"`
+	TurnTimeLimit int64             `json:"turnTimeLimit"`
+	TurnStartTime int64             `json:"turnStartTime"`
+	MoveDeadline  int64             `json:"moveDeadline"`
 }
 
 type Player struct {
@@ -60,26 +64,30 @@ func (m *TicTacToeMatch) MatchInit(ctx context.Context, logger runtime.Logger, d
 		gameMode = mode
 	}
 
+	timeLimit := int64(TimePerMoveStandard)
+	if gameMode == GameModeBlitz {
+		timeLimit = int64(TimePerMoveBlitz)
+	}
+
 	state := &MatchState{
 		Board: [][]string{
 			{"", "", ""},
 			{"", "", ""},
 			{"", "", ""},
 		},
-		Players:      make(map[string]Player),
-		PlayerOrder:  []string{},
-		CurrentTurn:  "",
-		Winner:       "",
-		GameStatus:   "waiting",
-		MoveCount:    0,
-		GameMode:     gameMode,
-		TimePerMove:  TimePerMoveStandard,
-		MoveDeadline: 0,
+		Players:       make(map[string]Player),
+		PlayerOrder:   []string{},
+		CurrentTurn:   "",
+		Winner:        "",
+		GameStatus:    "waiting",
+		MoveCount:     0,
+		GameMode:      gameMode,
+		TurnTimeLimit: timeLimit,
+		TurnStartTime: time.Now().Unix(),
+		MoveDeadline:  0,
 	}
 
-	if gameMode == GameModeBlitz {
-		state.TimePerMove = TimePerMoveBlitz
-	}
+	m.turnStartTime = state.TurnStartTime
 
 	tickRate := 1
 
@@ -138,6 +146,8 @@ func (m *TicTacToeMatch) MatchJoin(ctx context.Context, logger runtime.Logger, d
 	if len(matchState.Players) == 2 && matchState.GameStatus == "waiting" {
 		matchState.GameStatus = "active"
 		matchState.CurrentTurn = matchState.PlayerOrder[0]
+		matchState.TurnStartTime = time.Now().Unix()
+		m.turnStartTime = matchState.TurnStartTime
 
 		stateJson, _ := json.Marshal(matchState)
 		dispatcher.BroadcastMessage(OpCodeGameState, stateJson, nil, nil, true)
@@ -182,6 +192,18 @@ func (m *TicTacToeMatch) MatchSignal(ctx context.Context, logger runtime.Logger,
 
 func (m *TicTacToeMatch) MatchLoop(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runtime.NakamaModule, dispatcher runtime.MatchDispatcher, tick int64, state interface{}, messages []runtime.MatchData) interface{} {
 	matchState := state.(*MatchState)
+
+	if matchState.GameStatus == "active" {
+		currentTime := time.Now().Unix()
+		timeElapsed := currentTime - m.turnStartTime
+
+		if timeElapsed >= matchState.TurnTimeLimit {
+			winnerId := m.getOpponentId(matchState.CurrentTurn, matchState)
+			logger.Info("Player %s timed out. Winner: %s", matchState.CurrentTurn, winnerId)
+			m.endGame(matchState, winnerId, "timeout", dispatcher, logger)
+			return matchState
+		}
+	}
 
 	for _, message := range messages {
 		if message.GetOpCode() == OpCodePlayerMove {
@@ -244,6 +266,10 @@ func (m *TicTacToeMatch) MatchLoop(ctx context.Context, logger runtime.Logger, d
 						break
 					}
 				}
+
+				matchState.TurnStartTime = time.Now().Unix()
+				m.turnStartTime = matchState.TurnStartTime
+
 				stateJson, _ := json.Marshal(matchState)
 				dispatcher.BroadcastMessage(OpCodeGameState, stateJson, nil, nil, true)
 			}
@@ -259,6 +285,39 @@ func (m *TicTacToeMatch) MatchLoop(ctx context.Context, logger runtime.Logger, d
 	}
 
 	return matchState
+}
+
+func (m *TicTacToeMatch) endGame(state *MatchState, winnerId string, reason string, dispatcher runtime.MatchDispatcher, logger runtime.Logger) {
+	state.GameStatus = "finished"
+
+	var winnerPlayer *Player
+	if winnerId != "" {
+		player := state.Players[winnerId]
+		winnerPlayer = &player
+	}
+
+	gameOverData := map[string]interface{}{
+		"winner": winnerPlayer,
+		"reason": reason,
+	}
+
+	jsonData, _ := json.Marshal(gameOverData)
+	dispatcher.BroadcastMessage(OpCodeGameOver, jsonData, nil, nil, true)
+
+	// Broadcast final state
+	stateJson, _ := json.Marshal(state)
+	dispatcher.BroadcastMessage(OpCodeGameState, stateJson, nil, nil, true)
+
+	logger.Info("Game ended: %s", reason)
+}
+
+func (m *TicTacToeMatch) getOpponentId(currentPlayerId string, state *MatchState) string {
+	for playerId := range state.Players {
+		if playerId != currentPlayerId {
+			return playerId
+		}
+	}
+	return ""
 }
 
 func checkWinner(board [][]string, symbol string) bool {
