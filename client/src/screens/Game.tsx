@@ -3,8 +3,9 @@ import { View, Text, TouchableOpacity, SafeAreaView, Alert } from 'react-native'
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
 import { useNakama } from '../../contexts/nakamaContext';
-import { GameState, MatchResults, Player } from '../../interfaces/interfaces';
+import { GameState, GameStatusType, MatchResults, Player } from '../../interfaces/interfaces';
 import GameResultsModal from 'src/components/gameResultsModal';
+import Timer from 'src/components/timer';
 
 type Props = NativeStackScreenProps<RootStackParamList, "Game">;
 type CellValue = 'X' | 'O' | '';
@@ -30,6 +31,8 @@ export default function Game({ navigation }: Props) {
   const [gameStatus, setGameStatus] = useState<'waiting' | 'active' | 'finished'>('waiting');
   const [isGameOver, setIsGameOver] = useState<boolean>(false);
   const [gameResults, setGameResults] = useState<MatchResults | undefined>();
+  const [time, setTime] = useState<number>(30);
+  const [isTimerActive, setIsTimerActive] = useState<boolean>(false);
 
   useEffect(() => {
     setMatchDataHandler((opCode, data) => {
@@ -65,7 +68,21 @@ export default function Game({ navigation }: Props) {
     );
     setBoard(newBoard);
 
-    setGameStatus(newState.gameStatus as 'waiting' | 'active' | 'finished');
+    setGameStatus(newState.gameStatus as GameStatusType);
+
+
+    if (newState.turnStartTime && newState.turnTimeLimit) {
+      const currentTime = Math.floor(Date.now() / 1000);
+      const timeElapsed = currentTime - newState.turnStartTime;
+      const timeRemaining = Math.max(0, newState.turnTimeLimit - timeElapsed);
+      setTime(timeRemaining);
+    }
+
+    if (newState.gameStatus === 'active' && newState.playerOrder?.length === 2) {
+      setIsTimerActive(true);
+    } else {
+      setIsTimerActive(false);
+    }
 
     if (newState.players && !mySymbol && session) {
       const myUserId = session.user_id;
@@ -82,6 +99,7 @@ export default function Game({ navigation }: Props) {
 
     if (newState.currentTurn && newState.players) {
       const currentTurnPlayer = newState.players[newState.currentTurn];
+      
       if (currentTurnPlayer) {
         const turnSymbol = currentTurnPlayer.symbol as 'X' | 'O';
         setCurrentPlayer(turnSymbol);
@@ -125,6 +143,12 @@ export default function Game({ navigation }: Props) {
     let message = '';
     if (reason === 'draw') {
       message = "It's a draw!";
+    } else if (reason === 'timeout') {
+      if (didCurrentPlayerWin) {
+        message = 'You won! Opponent timed out! 🎉';
+      } else {
+        message = 'You lost! Time ran out!';
+      }
     } else if (didCurrentPlayerWin) {
       message = 'You won! 🎉';
     } else {
@@ -137,6 +161,7 @@ export default function Game({ navigation }: Props) {
     };
     setGameResults(results);
     setIsGameOver(true);
+    setIsTimerActive(false);
   };
 
   const handleCancel = async () => {
@@ -150,9 +175,31 @@ export default function Game({ navigation }: Props) {
     }
   };
 
+
   const handleGameResultsModalClose = () => {
     setIsGameOver(false);
     navigation.navigate("Home");
+  };
+  
+  const onTimerOver = () => {
+
+    const myUserId = session?.user_id;
+    
+    let message = '';
+    if (isMyTurn) {
+      message = 'Time ran out! You lost! ⏱️';
+    } else {
+      message = 'Opponent timed out! You won! 🎉';
+    }
+  
+    const results: MatchResults = {
+      winner: isMyTurn ? undefined : (gameState?.players[myUserId || ''] as Player),
+      message,
+    };
+    
+    setGameResults(results);
+    setIsGameOver(true);
+    setIsTimerActive(false);
   };
 
   const getPlayerInfo = () => {
@@ -195,14 +242,22 @@ export default function Game({ navigation }: Props) {
 
         <View className="items-center">
           {gameStatus === 'waiting' && (
-            <Text className="text-yellow-400 text-lg font-bold">
+            <Text className="text-yellow-400 text-lg font-bold mb-4">
               Waiting for opponent...
             </Text>
           )}
           {gameStatus === 'active' && (
-            <Text className={`text-lg font-bold ${isMyTurn ? 'text-green-400' : 'text-orange-400'}`}>
-              {isMyTurn ? "Your Turn!" : "Opponent's Turn"}
-            </Text>
+            <>
+              <Text className={`text-lg font-bold mb-4 ${isMyTurn ? 'text-green-400' : 'text-orange-400'}`}>
+                {isMyTurn ? "Your Turn!" : "Opponent's Turn"}
+              </Text>
+              <Timer 
+                time={time} 
+                setTime={setTime} 
+                isActive={isTimerActive} 
+                onTimeUp={onTimerOver}
+              />
+            </>
           )}
           {gameStatus === 'finished' && (
             <Text className="text-red-400 text-lg font-bold">
