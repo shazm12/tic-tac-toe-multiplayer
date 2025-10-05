@@ -12,7 +12,8 @@
     "isolatedModules": true,
     "types": [
       "react",
-      "react-native"
+      "react-native",
+      "node"
     ],
     "skipLibCheck": true,
     "baseUrl": "."
