@@ -7,11 +7,9 @@ interface NakamaContextType {
   isConnected: boolean;
   isAuthenticated: boolean;
   session: Session | null;
-  
   matchId: string | null;
   gameState: GameState | null;
   isInMatch: boolean;
-  
   initialize: (username: string) => Promise<void>;
   disconnect: () => void;
   findMatch: (gameMode: 'standard' | 'blitz', action?: 'join_random' | 'create_new') => Promise<MatchActionResponse>;
@@ -47,7 +45,6 @@ export const NakamaProvider: React.FC<NakamaProviderProps> = ({ children }) => {
       setupDefaultMatchDataHandler();
 
     } catch (error) {
-      console.error('Failed to initialize Nakama:', error);
       throw error;
     }
   };
@@ -63,16 +60,13 @@ export const NakamaProvider: React.FC<NakamaProviderProps> = ({ children }) => {
 
   const setupDefaultMatchDataHandler = (): void => {
     nakamaService.setMatchDataHandler((opCode: number, data: any) => {
-
       switch (opCode) {
-        case 2: // Game state update
+        case 2:
           setGameState(data as GameState);
           break;
-        case 3: // Game over
-          console.log('Game over:', data);
+        case 3:
           break;
-        case 4: // Error
-          console.error('Match error:', data);
+        case 4:
           break;
       }
     });
@@ -86,12 +80,10 @@ export const NakamaProvider: React.FC<NakamaProviderProps> = ({ children }) => {
       const result = await nakamaService.findOrCreateMatch(gameMode, action);
       setMatchId(result.match_id);
 
-      // Auto-join the match
       await nakamaService.joinMatch(result.match_id);
 
       return result;
     } catch (error) {
-      console.error('Failed to find match:', error);
       throw error;
     }
   };
@@ -101,7 +93,6 @@ export const NakamaProvider: React.FC<NakamaProviderProps> = ({ children }) => {
       await nakamaService.joinMatch(matchIdToJoin);
       setMatchId(matchIdToJoin);
     } catch (error) {
-      console.error('Failed to join match:', error);
       throw error;
     }
   };
@@ -116,7 +107,6 @@ export const NakamaProvider: React.FC<NakamaProviderProps> = ({ children }) => {
       setMatchId(null);
       setGameState(null);
     } catch (error) {
-      console.error('Failed to leave match:', error);
       throw error;
     }
   };
@@ -129,18 +119,15 @@ export const NakamaProvider: React.FC<NakamaProviderProps> = ({ children }) => {
     try {
       await nakamaService.sendMove(matchId, row, col);
     } catch (error) {
-      console.error('Failed to send move:', error);
       throw error;
     }
   };
 
   const setMatchDataHandler = (handler: (opCode: number, data: any) => void): void => {
     nakamaService.setMatchDataHandler((opCode, data) => {
-      // Update game state for OpCode 2
       if (opCode === 2) {
         setGameState(data as GameState);
       }
-      // custom handler
       handler(opCode, data);
     });
   };
