@@ -16,7 +16,15 @@ func InitModule(ctx context.Context, logger runtime.Logger, db *sql.DB, nk runti
 		return err
 	}
 
+	if err := initializer.RegisterBeforeAuthenticateCustom(BeforeAuthenticateCustom); err != nil {
+		return err
+	}
+
 	if err := initializer.RegisterRpc("match_action", RpcMatchAction); err != nil {
+		return err
+	}
+
+	if err := initializer.RegisterRpc("generate_device_auth", RpcGenerateDeviceAuth); err != nil {
 		return err
 	}
 

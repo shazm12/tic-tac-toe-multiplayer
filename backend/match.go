@@ -42,7 +42,7 @@ type Player struct {
 type MatchLabel struct {
 	Status   string `json:"status"`
 	Players  int    `json:"players"`
-	GameMode string `json:"game_mode"` // FIXED: snake_case to match query
+	GameMode string `json:"game_mode"`
 }
 
 const (
