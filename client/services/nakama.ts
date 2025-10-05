@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateDeviceFingerprint } from '../utils/deviceAuth';
 import { Client, Session, Socket } from "@heroiclabs/nakama-js";
-import { MatchActionPayload, MatchActionResponse, MoveData, MatchData, DeviceFingerprint } from "../interfaces/interfaces";
+import { MatchActionPayload, MatchActionResponse, MoveData, MatchData, DeviceFingerprint, DeviceAuthResponse, GameModeType } from "../interfaces/interfaces";
 import { TextDecoder } from 'text-encoding';
 
 const NAKAMA_SERVER_KEY = process.env.EXPO_PUBLIC_NAKAMA_KEY!;
@@ -29,14 +29,14 @@ class NakamaService {
         if (!this.client) {
             throw new Error("Client not initialized");
         }
-    
+
         try {
             const storedToken = await AsyncStorage.getItem(SESSION_KEY);
             const storedRefreshToken = await AsyncStorage.getItem(SESSION_KEY + '_refresh');
-            
+
             if (storedToken && storedRefreshToken) {
                 const restored = Session.restore(storedToken, storedRefreshToken);
-                
+
                 if (!restored.isexpired(Date.now() / 1000)) {
                     this.session = restored;
                     return restored;
@@ -46,7 +46,7 @@ class NakamaService {
             await AsyncStorage.removeItem(SESSION_KEY);
             await AsyncStorage.removeItem(SESSION_KEY + '_refresh');
         }
-        
+
         return null;
     }
 
@@ -54,40 +54,38 @@ class NakamaService {
         if (!this.client) {
             throw new Error("Client not initialized");
         }
-    
+
         try {
             const restored = await this.restoreSession();
-            
+
             if (restored) {
                 return restored;
             }
-    
+
             const fingerprint: DeviceFingerprint = await generateDeviceFingerprint();
-    
+
             const tempSession = await this.client.authenticateDevice(fingerprint.deviceId, true);
-    
+
             const requestPayload = {
                 fingerprint: fingerprint,
                 username: username || `Player${Math.floor(Math.random() * 1000)}`
             };
-    
+
             const response = await this.client.rpc(
                 tempSession,
                 "generate_device_auth",
                 requestPayload
             );
-    
-            const payload = typeof response.payload === 'string'
-                ? JSON.parse(response.payload)
-                : response.payload;
-            
+
+            const payload: DeviceAuthResponse = response.payload as DeviceAuthResponse;
+
             const { jwt } = payload || {};
-    
+
             this.session = await this.client.authenticateCustom(jwt, true, username);
-    
+
             await AsyncStorage.setItem(SESSION_KEY, this.session.token);
             await AsyncStorage.setItem(SESSION_KEY + '_refresh', this.session.refresh_token);
-    
+
             return this.session;
         } catch (error) {
             throw error;
@@ -118,15 +116,15 @@ class NakamaService {
     private setupSocketListeners(): void {
         if (!this.socket) return;
 
-        this.socket.ondisconnect = () => {};
+        this.socket.ondisconnect = () => { };
 
-        this.socket.onerror = (error: any) => {};
+        this.socket.onerror = (error: any) => { };
 
-        this.socket.onnotification = (notification: any) => {};
+        this.socket.onnotification = (notification: any) => { };
     }
 
     async findOrCreateMatch(
-        gameMode: "standard" | "blitz" = "standard",
+        gameMode: GameModeType = "standard",
         action: "join_random" | "create_new" = "join_random"
     ): Promise<MatchActionResponse> {
         if (!this.client || !this.session) {
@@ -145,9 +143,7 @@ class NakamaService {
                 payload
             );
 
-            const result: MatchActionResponse = typeof response.payload === 'string'
-                ? JSON.parse(response.payload)
-                : response.payload;
+            const result: MatchActionResponse = response.payload as MatchActionResponse;
 
             return result;
         } catch (error) {

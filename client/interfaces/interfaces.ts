@@ -7,7 +7,7 @@ export interface GameState {
   gameStatus: "waiting" | "active" | "finished";
   moveCount: number;
   gameMode: string;
-  timePerMove: number;
+  turnTimeLimit: number;
   turnStartTime: number;
   matchStarted: number;
 }
@@ -27,6 +27,11 @@ export interface MatchActionResponse {
   match_id: string;
   game_mode: string;
   is_new: boolean;
+}
+
+export interface DeviceAuthResponse {
+  jwt: string;
+  username: string
 }
 
 export interface MoveData {
@@ -49,6 +54,13 @@ export enum MatchAction {
   JOIN_RANDOM = "join_random"
 }
 
+export enum GameMode {
+  STANDARD="standard",
+  BLITZ="blitz"
+}
+export type GameStatusType = 'waiting' | 'active' | 'finished';
+export type GameModeType = "standard" | "blitz";
+
 export interface DeviceFingerprint {
   deviceId: string;
   deviceModel: string;
@@ -57,3 +69,4 @@ export interface DeviceFingerprint {
   brand: string;
   manufacturer: string;
 }
+
