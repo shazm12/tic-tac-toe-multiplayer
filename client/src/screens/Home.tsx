@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
 import { useNakama } from 'contexts/nakamaContext';
+import { MatchAction, MatchActionResponse } from 'interfaces/interfaces';
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export default function Home({ navigation }: Props) {
   const [playerName, setPlayerName] = useState<string>("");
-  const { isConnected, isAuthenticated, session, initialize } = useNakama();
+  const { isConnected, isAuthenticated, session, initialize, findMatch } = useNakama();
 
 
   const initNakama = async() => {
@@ -19,7 +20,7 @@ export default function Home({ navigation }: Props) {
       await initialize(playerName);
     }
     catch(error) {
-      console.error("Failed to connect");
+      console.error("Failed to connect: ", error);
     }
   }
   
@@ -27,9 +28,25 @@ export default function Home({ navigation }: Props) {
     setPlayerName(text);
   };
 
-  const handleSubmit = async(action: string) => {
-    await initNakama();
-    navigation.navigate("OppSearch", { playerName, gameMode: "standard", action: action });
+  const handleSubmit = async(action: MatchAction) => {
+    try {
+  
+      await initNakama();
+      const result: MatchActionResponse = await findMatch("standard",action);
+
+      if (result.match_id) {
+        navigation.navigate("Game");
+      }
+      else {
+        throw new Error("No match ID returned");
+      }
+    
+    }
+    catch(err) {
+      console.error("Failed to initialize game: ", err);
+      Alert.alert("Error", "Failed to start the game");
+
+    }
   };
 
   return (
@@ -48,7 +65,7 @@ export default function Home({ navigation }: Props) {
       
       <TouchableOpacity 
         className="bg-emerald-500 w-[80%] py-4 rounded-lg items-center active:bg-emerald-600"
-        onPress={() => handleSubmit("create_new")}
+        onPress={() => handleSubmit(MatchAction.CREATE_NEW)}
       >
         <Text className="text-white text-lg font-semibold">
           Create New Match
@@ -56,7 +73,7 @@ export default function Home({ navigation }: Props) {
       </TouchableOpacity>
       <TouchableOpacity 
         className="bg-emerald-500 w-[80%] py-4 mt-4 rounded-lg items-center active:bg-emerald-600"
-        onPress={() => handleSubmit("join_random")}
+        onPress={() => handleSubmit(MatchAction.JOIN_RANDOM)}
       >
         <Text className="text-white text-lg font-semibold">
          Join Random Match

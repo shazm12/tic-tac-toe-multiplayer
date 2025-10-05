@@ -3,7 +3,8 @@ import { View, Text, TouchableOpacity, SafeAreaView, Alert } from 'react-native'
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
 import { useNakama } from '../../contexts/nakamaContext';
-import { GameState } from '../../interfaces/interfaces';
+import { GameState, MatchResults, Player } from '../../interfaces/interfaces';
+import GameResultsModal from 'src/components/gameResultsModal';
 
 type Props = NativeStackScreenProps<RootStackParamList, "Game">;
 type CellValue = 'X' | 'O' | '';
@@ -27,6 +28,8 @@ export default function Game({ navigation }: Props) {
   const [mySymbol, setMySymbol] = useState<'X' | 'O' | null>(null);
   const [isMyTurn, setIsMyTurn] = useState<boolean>(false);
   const [gameStatus, setGameStatus] = useState<'waiting' | 'active' | 'finished'>('waiting');
+  const [isGameOver, setIsGameOver] = useState<boolean>(false);
+  const [gameResults, setGameResults] = useState<MatchResults | undefined>();
 
   useEffect(() => {
     setMatchDataHandler((opCode, data) => {
@@ -64,14 +67,10 @@ export default function Game({ navigation }: Props) {
 
     setGameStatus(newState.gameStatus as 'waiting' | 'active' | 'finished');
 
-    if (newState.gameStatus) {
-      Alert.alert("Game over");
-    }
-
     if (newState.players && !mySymbol && session) {
       const myUserId = session.user_id;
 
-      if(!myUserId) {
+      if (!myUserId) {
         return;
       }
       
@@ -117,22 +116,27 @@ export default function Game({ navigation }: Props) {
   };
 
   const handleGameOver = (data: any) => {
-    console.log(data);
-    const winner = data.winner;
+    const winner: Player | undefined = data.winner || undefined;
     const reason = data.reason;
+
+    const myUserId = session?.user_id;
+    const didCurrentPlayerWin = Boolean(winner && myUserId && winner.userId === myUserId);
 
     let message = '';
     if (reason === 'draw') {
       message = "It's a draw!";
-    } else if (winner && mySymbol && winner.symbol === mySymbol) {
+    } else if (didCurrentPlayerWin) {
       message = 'You won! 🎉';
     } else {
       message = 'You lost!';
     }
 
-    Alert.alert('Game Over', message, [
-      { text: 'OK', onPress: handleCancel }
-    ]);
+    const results: MatchResults = {
+      winner,
+      message,
+    };
+    setGameResults(results);
+    setIsGameOver(true);
   };
 
   const handleCancel = async () => {
@@ -140,10 +144,15 @@ export default function Game({ navigation }: Props) {
       if (matchId) {
         await leaveMatch();
       }
-      navigation.goBack();
+      navigation.navigate("Home");
     } catch (error) {
-      navigation.goBack();
+      navigation.navigate("Home");
     }
+  };
+
+  const handleGameResultsModalClose = () => {
+    setIsGameOver(false);
+    navigation.navigate("Home");
   };
 
   const getPlayerInfo = () => {
@@ -165,6 +174,13 @@ export default function Game({ navigation }: Props) {
 
   return (
     <SafeAreaView className="bg-cyan-950 flex-1">
+      <GameResultsModal 
+        isVisible={isGameOver} 
+        transparent={true} 
+        animationType={'slide'} 
+        gameResultData={gameResults} 
+        onClose={handleGameResultsModalClose} 
+      />
       <View className="flex-1 px-5 justify-between py-4">
         <View className="w-full">
           <Text className="text-white text-xl font-bold mb-2">
