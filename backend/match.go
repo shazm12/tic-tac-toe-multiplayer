@@ -9,9 +9,7 @@ import (
 	"github.com/heroiclabs/nakama-common/runtime"
 )
 
-type TicTacToeMatch struct {
-	turnStartTime int64
-}
+type TicTacToeMatch struct{}
 
 const (
 	GameModeStandard = "standard"
@@ -87,8 +85,6 @@ func (m *TicTacToeMatch) MatchInit(ctx context.Context, logger runtime.Logger, d
 		MoveDeadline:  0,
 	}
 
-	m.turnStartTime = state.TurnStartTime
-
 	tickRate := 1
 
 	label := &MatchLabel{
@@ -147,7 +143,6 @@ func (m *TicTacToeMatch) MatchJoin(ctx context.Context, logger runtime.Logger, d
 		matchState.GameStatus = "active"
 		matchState.CurrentTurn = matchState.PlayerOrder[0]
 		matchState.TurnStartTime = time.Now().Unix()
-		m.turnStartTime = matchState.TurnStartTime
 
 		stateJson, _ := json.Marshal(matchState)
 		dispatcher.BroadcastMessage(OpCodeGameState, stateJson, nil, nil, true)
@@ -195,7 +190,7 @@ func (m *TicTacToeMatch) MatchLoop(ctx context.Context, logger runtime.Logger, d
 
 	if matchState.GameStatus == "active" {
 		currentTime := time.Now().Unix()
-		timeElapsed := currentTime - m.turnStartTime
+		timeElapsed := currentTime - matchState.TurnStartTime
 
 		if timeElapsed >= matchState.TurnTimeLimit {
 			winnerId := m.getOpponentId(matchState.CurrentTurn, matchState)
@@ -268,7 +263,6 @@ func (m *TicTacToeMatch) MatchLoop(ctx context.Context, logger runtime.Logger, d
 				}
 
 				matchState.TurnStartTime = time.Now().Unix()
-				m.turnStartTime = matchState.TurnStartTime
 
 				stateJson, _ := json.Marshal(matchState)
 				dispatcher.BroadcastMessage(OpCodeGameState, stateJson, nil, nil, true)
