@@ -1,84 +1,135 @@
-import { MatchResults } from "interfaces/interfaces";
-import { Modal, Text, View, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from 'react';
+import { Modal, View, Text, TouchableOpacity, ScrollView, ActivityIndicator } from 'react-native';
+import { MatchResults } from '../../interfaces/interfaces';
+import type { LeaderboardRecord } from '@heroiclabs/nakama-js';
+import { useNakama } from '../../contexts/nakamaContext';
 
-type GameResultsModalProps = {
-    isVisible: boolean,
-    transparent: boolean,
-    animationType: "none" | "slide" | "fade" | undefined,
-    onClose: () => void,
-    gameResultData: MatchResults | undefined
+interface GameResultsModalProps {
+    isVisible: boolean;
+    transparent?: boolean;
+    animationType?: 'none' | 'slide' | 'fade';
+    gameResultData?: MatchResults;
+    onClose: () => void;
 }
 
-export default function GameResultsModal({ 
-    isVisible, 
-    animationType, 
-    transparent, 
-    onClose, 
-    gameResultData 
+
+export default function GameResultsModal({
+    isVisible,
+    transparent = true,
+    animationType = 'slide',
+    gameResultData,
+    onClose
 }: GameResultsModalProps) {
+    const { getLeaderboard, session } = useNakama();
+    const [leaderboardData, setLeaderboardData] = useState<LeaderboardRecord[]>([]);
+    const [loading, setLoading] = useState(false);
 
-    const isWinner = gameResultData?.message?.includes('won') ?? false;
-    const isDraw = gameResultData?.message?.includes('draw') ?? false;
+    useEffect(() => {
+        if (isVisible) {
+            fetchLeaderboard();
+        }
+    }, [isVisible]);
 
+    const fetchLeaderboard = async () => {
+        try {
+            setLoading(true);
+            const records = await getLeaderboard();
+            setLeaderboardData((records as LeaderboardRecord[]) || []);
+        } catch (error) {
+            console.error('Failed to fetch leaderboard:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const renderLeaderboardRow = (record: LeaderboardRecord, index: number) => {
+        const isCurrentUser = record.owner_id === session?.user_id;
+
+        return (
+            <View
+                key={record.owner_id}
+                className={`flex-row items-center py-3 px-4 ${isCurrentUser ? 'bg-emerald-900/50' : 'bg-cyan-800/30'
+                    } mb-1 rounded-lg`}
+            >
+                <Text className="text-cyan-400 font-bold text-lg w-10">
+                    #{record.rank}
+                </Text>
+                <Text
+                    className={`flex-1 text-base font-semibold ${isCurrentUser ? 'text-emerald-300' : 'text-white'
+                        }`}
+                    numberOfLines={1}
+                >
+                    {record.username} {isCurrentUser && '(You)'}
+                </Text>
+                <Text className="text-emerald-400 font-bold text-lg">
+                    {record.score}
+                </Text>
+            </View>
+        );
+    };
 
     return (
-        <Modal 
-            animationType={animationType} 
-            transparent={transparent} 
+        <Modal
             visible={isVisible}
-            onRequestClose={onClose}
+            transparent={transparent}
+            animationType={animationType}
         >
-            <View className="flex-1 justify-center items-center bg-black/70 px-6">
-                <View className="bg-cyan-950 rounded-2xl p-6 w-full max-w-sm border-2 border-cyan-700">
-                    
-                    <Text className="text-white text-3xl font-bold text-center mb-4">
-                        Game Over
-                    </Text>
+            <View className="flex-1 items-center justify-center bg-black/80 px-4">
+                <View className="bg-cyan-950 w-full max-w-md rounded-2xl border-2 border-cyan-700 max-h-[85%]">
+                    <ScrollView showsVerticalScrollIndicator={false}>
+                        <View className="p-6">
+                            <Text className="text-3xl font-bold text-white mb-3 text-center">
+                                Game Over
+                            </Text>
 
-                    <View className={`py-4 px-6 rounded-xl mb-6 ${
-                        isWinner ? 'bg-green-900/40' : 
-                        isDraw ? 'bg-yellow-900/40' : 
-                        'bg-red-900/40'
-                    }`}>
-                        <Text className={`text-2xl font-bold text-center ${
-                            isWinner ? 'text-green-400' : 
-                            isDraw ? 'text-yellow-400' : 
-                            'text-red-400'
-                        }`}>
-                            {gameResultData?.message}
-                        </Text>
-                    </View>
+                            <Text className="text-xl text-cyan-300 text-center mb-4">
+                                {gameResultData?.message}
+                            </Text>
 
-                    {gameResultData?.winner && (
-                        <View className="bg-cyan-900 rounded-xl p-4 mb-6">
-                            <Text className="text-gray-400 text-sm text-center mb-2">
-                                Winner
-                            </Text>
-                            <Text className="text-white text-xl font-bold text-center">
-                                {gameResultData.winner.username}
-                            </Text>
-                            <Text className="text-cyan-400 text-lg text-center mt-1">
-                                ({gameResultData.winner.symbol})
-                            </Text>
+                            {gameResultData?.score !== undefined && gameResultData.score > 0 && (
+                                <View className="bg-emerald-600 px-6 py-3 rounded-xl mb-4 items-center">
+                                    <Text className="text-white text-2xl font-bold">
+                                        +{gameResultData.score} points
+                                    </Text>
+                                    {gameResultData.scoreBreakdown && (
+                                        <Text className="text-emerald-200 text-sm mt-1">
+                                            {gameResultData.scoreBreakdown}
+                                        </Text>
+                                    )}
+                                </View>
+                            )}
+                            <View className="mt-4">
+                                <Text className="text-2xl font-bold text-white mb-3 text-center">
+                                    🏆 Leaderboard
+                                </Text>
+
+                                {loading ? (
+                                    <View className="py-8 items-center">
+                                        <ActivityIndicator size="large" color="#67e8f9" />
+                                        <Text className="text-cyan-300 mt-2">Loading...</Text>
+                                    </View>
+                                ) : leaderboardData.length > 0 ? (
+                                    <View className="bg-cyan-900/50 rounded-xl p-2">
+                                        {leaderboardData.map((record, index) =>
+                                            renderLeaderboardRow(record, index)
+                                        )}
+                                    </View>
+                                ) : (
+                                    <Text className="text-gray-400 text-center py-4">
+                                        No leaderboard data available
+                                    </Text>
+                                )}
+                            </View>
+                            <TouchableOpacity
+                                className="bg-cyan-600 w-full py-4 rounded-xl mt-6 active:bg-cyan-700"
+                                onPress={onClose}
+                            >
+                                <Text className="text-white text-lg font-semibold text-center">
+                                    Back to Home
+                                </Text>
+                            </TouchableOpacity>
                         </View>
-                    )}
-
-                    {isDraw && (
-                        <View className="bg-cyan-900 rounded-xl p-4 mb-6">
-                            <Text className="text-gray-400 text-center">
-                                No winner this time!
-                            </Text>
-                        </View>
-                    )}
-
-                    <TouchableOpacity
-                        className="bg-cyan-600 py-4 rounded-lg active:bg-cyan-700"
-                        onPress={onClose}
-                    >
-                        <Text className="text-white text-lg font-semibold text-center">
-                            Back to Home
-                        </Text>
-                    </TouchableOpacity>
+                    </ScrollView>
                 </View>
             </View>
         </Modal>

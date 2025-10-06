@@ -4,6 +4,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../App';
 import { useNakama } from '../../contexts/nakamaContext';
 import { GameState, GameStatusType, MatchResults, Player } from '../../interfaces/interfaces';
+import { calculateGameScore } from "../../utils/scoreCalculator";
 import GameResultsModal from 'src/components/gameResultsModal';
 import Timer from 'src/components/timer';
 
@@ -17,6 +18,8 @@ export default function Game({ navigation }: Props) {
     session,
     sendMove,
     leaveMatch,
+    registerScoreinLeaderboard,
+    getLeaderboard,
     setMatchDataHandler,
   } = useNakama();
 
@@ -107,6 +110,9 @@ export default function Game({ navigation }: Props) {
         if (mySymbol) {
           const isMyTurnNow = mySymbol === turnSymbol;
           setIsMyTurn(isMyTurnNow);
+          if(isMyTurn && newState.turnTimeLimit) {
+            setTime(newState.turnTimeLimit);
+          }
         }
       }
     }
@@ -133,12 +139,20 @@ export default function Game({ navigation }: Props) {
     }
   };
 
-  const handleGameOver = (data: any) => {
+  const handleGameOver = async(data: any) => {
     const winner: Player | undefined = data.winner || undefined;
     const reason = data.reason;
 
     const myUserId = session?.user_id;
     const didCurrentPlayerWin = Boolean(winner && myUserId && winner.userId === myUserId);
+
+    const scoreResult = calculateGameScore({
+      isWinner: didCurrentPlayerWin,
+      moveCount: gameState?.moveCount || 0,
+      reason: reason,
+      gameMode: gameState?.gameMode as 'standard' | 'blitz',
+    });
+  
 
     let message = '';
     if (reason === 'draw') {
@@ -155,9 +169,19 @@ export default function Game({ navigation }: Props) {
       message = 'You lost!';
     }
 
+    if (scoreResult.score > 0) {
+      try {
+        await registerScoreinLeaderboard(scoreResult.score);
+      } catch (error) {
+        console.error('Failed to update leaderboard:', error);
+      }
+    }
+
     const results: MatchResults = {
       winner,
       message,
+      score: scoreResult.score,
+      scoreBreakdown: scoreResult.breakdown,
     };
     setGameResults(results);
     setIsGameOver(true);
@@ -181,20 +205,39 @@ export default function Game({ navigation }: Props) {
     navigation.navigate("Home");
   };
   
-  const onTimerOver = () => {
-
+  const onTimerOver = async () => {
     const myUserId = session?.user_id;
+    const didIWin = !isMyTurn; 
     
+    const scoreResult = calculateGameScore({
+      isWinner: didIWin,
+      moveCount: gameState?.moveCount || 0,
+      reason: 'timeout',
+      gameMode: gameState?.gameMode as 'standard' | 'blitz',
+    });
+  
     let message = '';
     if (isMyTurn) {
       message = 'Time ran out! You lost! ⏱️';
     } else {
       message = 'Opponent timed out! You won! 🎉';
     }
+
+    if (scoreResult.score > 0) {
+      try {
+        await registerScoreinLeaderboard(scoreResult.score);
+        console.log(`Leaderboard updated: +${scoreResult.score} points (timeout)`);
+        console.log(`Breakdown: ${scoreResult.breakdown}`);
+      } catch (error) {
+        console.error('Failed to update leaderboard:', error);
+      }
+    }
   
     const results: MatchResults = {
-      winner: isMyTurn ? undefined : (gameState?.players[myUserId || ''] as Player),
+      winner: didIWin ? (gameState?.players[myUserId || ''] as Player) : undefined,
       message,
+      score: scoreResult.score,
+      scoreBreakdown: scoreResult.breakdown,
     };
     
     setGameResults(results);
