@@ -1,22 +1,33 @@
 import { ScoreResult } from "../interfaces/interfaces";
 interface ScoreCalculationParams {
-    isWinner: boolean;
+    currPlayerResult: 'winner' | 'loser' | 'draw';
     moveCount: number;
     reason: 'victory' | 'timeout' | 'draw' | 'player_left';
     gameMode?: 'standard' | 'blitz';
 }
+
+
+
 export function calculateGameScore(params: ScoreCalculationParams): ScoreResult {
-    const { isWinner, moveCount, reason, gameMode = 'standard' } = params;
+    const { currPlayerResult, moveCount, reason, gameMode = 'standard' } = params;
 
+    if (currPlayerResult == 'loser' && reason !== 'draw') {
+        if (reason === 'player_left') {
+            // Player who left gets nothing
+            return {
+                score: 0,
+                breakdown: 'Left game: 0 points',
+            };
+        }
 
-    if (!isWinner && reason !== 'draw') {
+        // Lost but participated fully
         return {
-            score: 0,
-            breakdown: 'No points for losing',
+            score: 1,
+            breakdown: 'Participation: 1 point',
         };
     }
 
-
+    // Draw - both players get 1 point
     if (reason === 'draw') {
         return {
             score: 1,
@@ -24,36 +35,37 @@ export function calculateGameScore(params: ScoreCalculationParams): ScoreResult 
         };
     }
 
-
-    let baseScore = 2;
+    // Win scoring
+    let baseScore = 2; // Base win points
     let speedBonus = 0;
     let reasonBonus = 0;
     let modeMultiplier = 1;
 
-
+    // Speed bonus based on move count
     if (moveCount <= 5) {
-        speedBonus = 6;
+        speedBonus = 6; // Lightning fast win (5 moves or less) = +6
     } else if (moveCount < 7) {
-        speedBonus = 4;
+        speedBonus = 4; // Quick win (6 moves) = +4
     } else if (moveCount < 9) {
-        speedBonus = 2;
+        speedBonus = 2; // Fast win (7-8 moves) = +2
     }
 
-    if (reason === 'timeout') {
-        reasonBonus = 2;
+    if ( reason === 'timeout') {
+        reasonBonus = 2; 
     } else if (reason === 'player_left') {
-        reasonBonus = 1;
+        reasonBonus = 3;
     }
 
-
+    // Game mode multiplier
     if (gameMode === 'blitz') {
-        modeMultiplier = 1.5;
+        modeMultiplier = 1.5; // Blitz mode worth 50% more
     }
 
-
+    // Calculate total
     const rawScore = baseScore + speedBonus + reasonBonus;
     const finalScore = Math.floor(rawScore * modeMultiplier);
 
+    // Build breakdown string
     const breakdown = buildBreakdown(baseScore, speedBonus, reasonBonus, gameMode, moveCount, reason);
 
     return {
