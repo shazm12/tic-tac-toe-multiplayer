@@ -234,8 +234,13 @@ func (m *TicTacToeMatch) MatchLoop(ctx context.Context, logger runtime.Logger, d
 				stateJson, _ := json.Marshal(matchState)
 				dispatcher.BroadcastMessage(OpCodeGameState, stateJson, nil, nil, true)
 
+				loserId := m.getOpponentId(player.UserId, matchState)
+
+				loser := matchState.Players[loserId]
+
 				gameOverData := map[string]interface{}{
 					"winner": player,
+					"loser":  loser,
 					"reason": "victory",
 				}
 				gameOverJson, _ := json.Marshal(gameOverData)
