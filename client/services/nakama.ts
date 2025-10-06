@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { generateDeviceFingerprint } from '../utils/deviceAuth';
-import { Client, Session, Socket } from "@heroiclabs/nakama-js";
-import { MatchActionPayload, MatchActionResponse, MoveData, MatchData, DeviceFingerprint, DeviceAuthResponse, GameModeType } from "../interfaces/interfaces";
+import { Client, LeaderboardRecord, Session, Socket, WriteLeaderboardRecord } from "@heroiclabs/nakama-js";
+import { MatchActionPayload, MatchActionResponse, MoveData, MatchData, DeviceFingerprint, DeviceAuthResponse, GameModeType, LeaderboardActionResponse } from "../interfaces/interfaces";
 import { TextDecoder } from 'text-encoding';
 
 const NAKAMA_SERVER_KEY = process.env.EXPO_PUBLIC_NAKAMA_KEY!;
@@ -36,7 +36,6 @@ class NakamaService {
 
             if (storedToken && storedRefreshToken) {
                 const restored = Session.restore(storedToken, storedRefreshToken);
-
                 if (!restored.isexpired(Date.now() / 1000)) {
                     this.session = restored;
                     return restored;
@@ -208,6 +207,75 @@ class NakamaService {
         try {
             await this.socket.leaveMatch(matchId);
         } catch (error) {
+            throw error;
+        }
+    }
+
+    async getLeaderboardID(): Promise<LeaderboardActionResponse> {
+        if (!this.client || !this.session) {
+            throw new Error("Client not initialized or not authenticated");
+        }
+        try {
+            const response = await this.client.rpc(this.session,"leaderboard_action", {});
+            const result: LeaderboardActionResponse = response.payload as LeaderboardActionResponse;
+            return result
+        }
+        catch(error) {
+            throw error;
+        }
+
+    }
+
+    async writeLeaderboardScore(leaderboardId: string, score: number, subscore: number = 0): Promise<void> {
+        if (!this.client || !this.session) {
+            throw new Error("Not authenticated");
+        }
+    
+        try {
+            
+            const metadata = {
+                timestamp: Date.now()
+            };
+            
+            const writeRequest: WriteLeaderboardRecord = {
+                metadata: metadata,
+                score: score.toString(),
+                subscore: subscore.toString(),
+
+            }
+    
+            await this.client.writeLeaderboardRecord(
+                this.session,
+                leaderboardId,
+                writeRequest
+            );
+    
+            console.log(`Leaderboard updated: ${score} points`);
+        } catch (error) {
+            console.error("Failed to write leaderboard:", error);
+            throw error;
+        }
+    }
+
+    async getLeaderboard(leaderboardId: string, limit: number = 10): Promise<LeaderboardRecord[]> {
+        if (!this.client || !this.session) {
+            throw new Error("Not authenticated");
+        }
+    
+        try {
+            const result = await this.client.listLeaderboardRecords(
+                this.session,
+                leaderboardId,
+                [],
+                limit
+            );
+            if(result.records) {
+                return result.records;
+            }
+            return [];
+            
+        } catch (error) {
+            console.error("Failed to fetch leaderboard:", error);
             throw error;
         }
     }

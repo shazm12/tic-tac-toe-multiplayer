@@ -18,6 +18,18 @@ export interface Player {
   symbol: "X" | "O";
 }
 
+export interface LeaderboardRecord {
+  rank: number;
+  ownerId: string;
+  username: string;
+  score: number;
+}
+
+export interface ScoreResult {
+  score: number;
+  breakdown: string;
+}
+
 export interface MatchActionPayload {
   action: "join_random" | "create_new";
   game_mode: "standard" | "blitz";
@@ -34,6 +46,10 @@ export interface DeviceAuthResponse {
   username: string
 }
 
+export interface LeaderboardActionResponse {
+  leaderboard_id: string;
+}
+
 export interface MoveData {
   row: number;
   col: number;
@@ -48,6 +64,8 @@ export interface MatchData {
 export interface MatchResults {
   winner: Player | undefined,
   message: string | undefined
+  score: number | undefined,
+  scoreBreakdown: string | undefined
 }
 export enum MatchAction {
   CREATE_NEW = "create_new",
