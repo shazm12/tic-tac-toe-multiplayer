@@ -1,0 +1,10 @@
+# .gcloudignore
+.git
+.gitignore
+node_modules/
+android/
+ios/
+.expo/
+*.log
+.env*
+README.md
