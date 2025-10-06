@@ -1,0 +1,16 @@
+runtime: nodejs20
+
+handlers:
+  - url: /_expo/static
+    static_dir: dist/_expo/static
+    secure: always
+
+  - url: /assets
+    static_dir: dist/assets
+    secure: always
+
+  # Serve index.html for all routes (SPA support)
+  - url: /.*
+    static_files: dist/index.html
+    upload: dist/index.html
+    secure: always
