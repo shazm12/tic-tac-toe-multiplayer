@@ -3,11 +3,12 @@ import { generateDeviceFingerprint } from '../utils/deviceAuth';
 import { Client, LeaderboardRecord, Session, Socket, WriteLeaderboardRecord } from "@heroiclabs/nakama-js";
 import { MatchActionPayload, MatchActionResponse, MoveData, MatchData, DeviceFingerprint, DeviceAuthResponse, GameModeType, LeaderboardActionResponse } from "../interfaces/interfaces";
 import { TextDecoder } from 'text-encoding';
+import Constants from 'expo-constants';
 
-const NAKAMA_SERVER_KEY = process.env.EXPO_PUBLIC_NAKAMA_KEY!;
-const NAKAMA_HOST = process.env.EXPO_PUBLIC_NAKAMA_HOST!;
-const NAKAMA_PORT = process.env.EXPO_PUBLIC_NAKAMA_PORT!;
-const USE_SSL = false;
+const NAKAMA_SERVER_KEY = process.env.EXPO_PUBLIC_NAKAMA_KEY || "defaultkey";
+const NAKAMA_HOST = Constants.expoConfig?.extra?.nakamaServerHost || "localhost";
+const NAKAMA_PORT = Constants.expoConfig?.extra?.nakamaServerPort || "7350";
+const USE_SSL = true;
 const SESSION_KEY = '@nakama_session';
 
 class NakamaService {

@@ -54,7 +54,7 @@ export default function Game({ navigation }: Props) {
 
     return () => {
       if (matchId) {
-        leaveMatch().catch(() => {});
+        leaveMatch().catch(() => { });
       }
     };
   }, []);
@@ -66,7 +66,7 @@ export default function Game({ navigation }: Props) {
   }, [gameState]);
 
   const updateLocalGameState = (newState: GameState) => {
-    const newBoard: CellValue[][] = newState.board.map(row => 
+    const newBoard: CellValue[][] = newState.board.map(row =>
       row.map(cell => cell as CellValue)
     );
     setBoard(newBoard);
@@ -93,7 +93,7 @@ export default function Game({ navigation }: Props) {
       if (!myUserId) {
         return;
       }
-      
+
       if (newState.players[myUserId]) {
         const myPlayerSymbol = newState.players[myUserId].symbol as 'X' | 'O';
         setMySymbol(myPlayerSymbol);
@@ -102,15 +102,15 @@ export default function Game({ navigation }: Props) {
 
     if (newState.currentTurn && newState.players) {
       const currentTurnPlayer = newState.players[newState.currentTurn];
-      
+
       if (currentTurnPlayer) {
         const turnSymbol = currentTurnPlayer.symbol as 'X' | 'O';
         setCurrentPlayer(turnSymbol);
-        
+
         if (mySymbol) {
           const isMyTurnNow = mySymbol === turnSymbol;
           setIsMyTurn(isMyTurnNow);
-          if(isMyTurn && newState.turnTimeLimit) {
+          if (isMyTurn && newState.turnTimeLimit) {
             setTime(newState.turnTimeLimit);
           }
         }
@@ -125,7 +125,7 @@ export default function Game({ navigation }: Props) {
 
     try {
       await sendMove(row, col);
-      
+
       const newBoard = board.map((r, rowIndex) =>
         rowIndex === row
           ? r.map((cell, colIndex) => (colIndex === col ? mySymbol || 'X' : cell))
@@ -133,26 +133,30 @@ export default function Game({ navigation }: Props) {
       );
       setBoard(newBoard as CellValue[][]);
       setIsMyTurn(false);
-      
+
     } catch (error) {
       Alert.alert('Error', 'Failed to make move');
     }
   };
 
-  const handleGameOver = async(data: any) => {
+  const handleGameOver = async (data: any) => {
     const winner: Player | undefined = data.winner || undefined;
-    const reason = data.reason;
+    const loser: Player | undefined = data.loser || undefined;
+    const reason = data.reason as 'victory' | 'timeout' | 'draw' | 'player_left';
+
 
     const myUserId = session?.user_id;
     const didCurrentPlayerWin = Boolean(winner && myUserId && winner.userId === myUserId);
+    const didCurrentPlayerLose = Boolean(loser && myUserId && loser.userId === myUserId);
+
+    const currentPlayerResult = didCurrentPlayerWin ? 'winner' : didCurrentPlayerLose ? 'loser' : 'draw';
 
     const scoreResult = calculateGameScore({
-      isWinner: didCurrentPlayerWin,
+      currPlayerResult: currentPlayerResult,
       moveCount: gameState?.moveCount || 0,
       reason: reason,
       gameMode: gameState?.gameMode as 'standard' | 'blitz',
     });
-  
 
     let message = '';
     if (reason === 'draw') {
@@ -163,6 +167,12 @@ export default function Game({ navigation }: Props) {
       } else {
         message = 'You lost! Time ran out!';
       }
+    } else if (reason === 'player_left') {
+      if (didCurrentPlayerWin) {
+        message = 'You won! Opponent left! 🎉';
+      } else {
+        message = 'Opponent left the game';
+      }
     } else if (didCurrentPlayerWin) {
       message = 'You won! 🎉';
     } else {
@@ -172,6 +182,8 @@ export default function Game({ navigation }: Props) {
     if (scoreResult.score > 0) {
       try {
         await registerScoreinLeaderboard(scoreResult.score);
+        console.log(`Leaderboard updated: +${scoreResult.score} points`);
+        console.log(`Breakdown: ${scoreResult.breakdown}`);
       } catch (error) {
         console.error('Failed to update leaderboard:', error);
       }
@@ -183,6 +195,7 @@ export default function Game({ navigation }: Props) {
       score: scoreResult.score,
       scoreBreakdown: scoreResult.breakdown,
     };
+
     setGameResults(results);
     setIsGameOver(true);
     setIsTimerActive(false);
@@ -204,18 +217,17 @@ export default function Game({ navigation }: Props) {
     setIsGameOver(false);
     navigation.navigate("Home");
   };
-  
+
   const onTimerOver = async () => {
     const myUserId = session?.user_id;
-    const didIWin = !isMyTurn; 
-    
+    const currentPlayerResult = !isMyTurn ? 'winner' : 'loser';
     const scoreResult = calculateGameScore({
-      isWinner: didIWin,
+      currPlayerResult: currentPlayerResult,
       moveCount: gameState?.moveCount || 0,
       reason: 'timeout',
       gameMode: gameState?.gameMode as 'standard' | 'blitz',
     });
-  
+
     let message = '';
     if (isMyTurn) {
       message = 'Time ran out! You lost! ⏱️';
@@ -232,14 +244,14 @@ export default function Game({ navigation }: Props) {
         console.error('Failed to update leaderboard:', error);
       }
     }
-  
+
     const results: MatchResults = {
-      winner: didIWin ? (gameState?.players[myUserId || ''] as Player) : undefined,
+      winner: !isMyTurn ? (gameState?.players[myUserId || ''] as Player) : undefined,
       message,
       score: scoreResult.score,
       scoreBreakdown: scoreResult.breakdown,
     };
-    
+
     setGameResults(results);
     setIsGameOver(true);
     setIsTimerActive(false);
@@ -264,12 +276,12 @@ export default function Game({ navigation }: Props) {
 
   return (
     <SafeAreaView className="bg-cyan-950 flex-1">
-      <GameResultsModal 
-        isVisible={isGameOver} 
-        transparent={true} 
-        animationType={'slide'} 
-        gameResultData={gameResults} 
-        onClose={handleGameResultsModalClose} 
+      <GameResultsModal
+        isVisible={isGameOver}
+        transparent={true}
+        animationType={'slide'}
+        gameResultData={gameResults}
+        onClose={handleGameResultsModalClose}
       />
       <View className="flex-1 px-5 justify-between py-4">
         <View className="w-full">
@@ -294,10 +306,10 @@ export default function Game({ navigation }: Props) {
               <Text className={`text-lg font-bold mb-4 ${isMyTurn ? 'text-green-400' : 'text-orange-400'}`}>
                 {isMyTurn ? "Your Turn!" : "Opponent's Turn"}
               </Text>
-              <Timer 
-                time={time} 
-                setTime={setTime} 
-                isActive={isTimerActive} 
+              <Timer
+                time={time}
+                setTime={setTime}
+                isActive={isTimerActive}
                 onTimeUp={onTimerOver}
               />
             </>
@@ -316,18 +328,16 @@ export default function Game({ navigation }: Props) {
                 {row.map((cell, colIndex) => (
                   <TouchableOpacity
                     key={`${rowIndex}-${colIndex}`}
-                    className={`flex-1 border border-gray-500 items-center justify-center ${
-                      isMyTurn && cell === '' && gameStatus === 'active'
+                    className={`flex-1 border border-gray-500 items-center justify-center ${isMyTurn && cell === '' && gameStatus === 'active'
                         ? 'bg-cyan-800'
                         : 'bg-cyan-900'
-                    }`}
+                      }`}
                     onPress={() => handleCellPress(rowIndex, colIndex)}
                     disabled={!isMyTurn || cell !== '' || gameStatus !== 'active'}
                   >
-                    <Text 
-                      className={`text-5xl font-bold ${
-                        cell === 'X' ? 'text-blue-400' : 'text-red-400'
-                      }`}
+                    <Text
+                      className={`text-5xl font-bold ${cell === 'X' ? 'text-blue-400' : 'text-red-400'
+                        }`}
                     >
                       {cell}
                     </Text>
@@ -351,7 +361,7 @@ export default function Game({ navigation }: Props) {
           </View>
         )}
 
-        <TouchableOpacity 
+        <TouchableOpacity
           className="bg-red-500 w-full py-3 rounded-lg items-center active:bg-red-600"
           onPress={handleCancel}
         >
