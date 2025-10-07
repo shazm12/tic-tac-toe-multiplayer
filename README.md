@@ -2,6 +2,9 @@
 
 A real-time multiplayer Tic-Tac-Toe built with a Go backend powered by Nakama (matchmaking, authoritative match loop, RPCs, leaderboards) and a React Native client (Expo) for a smooth mobile experience.
 
+## Video Link
+https://drive.google.com/file/d/1IPjumk-ZKmln0eDCNUbmU4vDCDrg9NKd/view?usp=sharing
+
 ### Tech Stack
 - **Backend**: Go, Nakama server (authoritative matches, RPC, storage, leaderboards)
 - **Client**: React Native (Expo), TypeScript, Tailwind (NativeWind)
